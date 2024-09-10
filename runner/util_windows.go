@@ -21,6 +21,7 @@ func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, 
 		e.runnerLog("CMD will not recognize non .exe file for execution, path: %s", cmd)
 	}
 	c := exec.Command("cmd", "/c", cmd)
+	c.Env = append(c.Environ(), e.runEnv...)
 	stderr, err := c.StderrPipe()
 	if err != nil {
 		return nil, nil, nil, err

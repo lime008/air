@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -71,7 +72,8 @@ func (e *Engine) isTestDataDir(path string) bool {
 }
 
 func isHiddenDirectory(path string) bool {
-	return len(path) > 1 && strings.HasPrefix(filepath.Base(path), ".") && filepath.Base(path) != ".."
+	return len(path) > 1 && strings.HasPrefix(filepath.Base(path), ".") &&
+		filepath.Base(path) != ".."
 }
 
 func cleanPath(path string) string {
@@ -186,6 +188,25 @@ func (e *Engine) logWithLock(f func()) {
 	e.ll.Lock()
 	f()
 	e.ll.Unlock()
+}
+
+func (e *Engine) loadEnvFile(path string) error {
+	env := []string{}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	lines := bytes.Split(data, []byte{'\n'})
+
+	for _, l := range lines {
+		env = append(env, string(l))
+	}
+
+	e.runEnv = env
+
+	return nil
 }
 
 func expandPath(path string) (string, error) {

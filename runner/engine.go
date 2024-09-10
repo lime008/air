@@ -22,6 +22,7 @@ type Engine struct {
 	watcher   filenotify.FileWatcher
 	debugMode bool
 	runArgs   []string
+	runEnv    []string
 	running   bool
 
 	eventCh        chan string
@@ -46,6 +47,7 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	e := Engine{
 		config:         cfg,
 		proxy:          NewProxy(&cfg.Proxy),
@@ -53,6 +55,7 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 		watcher:        watcher,
 		debugMode:      debugMode,
 		runArgs:        cfg.Build.ArgsBin,
+		runEnv:         []string{},
 		eventCh:        make(chan string, 1000),
 		watcherStopCh:  make(chan bool, 10),
 		buildRunCh:     make(chan bool, 1),
@@ -83,13 +86,19 @@ func (e *Engine) Run() {
 		if err != nil {
 			log.Fatalf("Failed writing default config: %+v", err)
 		}
-		fmt.Printf("%s file created to the current directory with the default settings\n", configName)
+		fmt.Printf(
+			"%s file created to the current directory with the default settings\n",
+			configName,
+		)
 		return
 	}
 
 	e.mainDebug("CWD: %s", e.config.Root)
 
 	var err error
+	if err = e.loadEnvFile(e.config.EnvFile); err != nil {
+		e.mainLog("Failed to load env_file: %s", e.config.EnvFile)
+	}
 	if err = e.checkRunEnv(); err != nil {
 		os.Exit(1)
 	}
@@ -167,7 +176,8 @@ func (e *Engine) cacheFileChecksums(root string) error {
 		}
 
 		if !info.Mode().IsRegular() {
-			if e.isTmpDir(path) || e.isTestDataDir(path) || isHiddenDirectory(path) || e.isExcludeDir(path) {
+			if e.isTmpDir(path) || e.isTestDataDir(path) || isHiddenDirectory(path) ||
+				e.isExcludeDir(path) {
 				e.watcherDebug("!exclude checksum %s", e.config.rel(path))
 				return filepath.SkipDir
 			}
@@ -297,7 +307,10 @@ func (e *Engine) watchNewDir(dir string, removeDir bool) {
 func (e *Engine) isModified(filename string) bool {
 	newChecksum, err := fileChecksum(filename)
 	if err != nil {
-		e.watcherDebug("can't determine if file was changed: %v - assuming it did without updating cache", err)
+		e.watcherDebug(
+			"can't determine if file was changed: %v - assuming it did without updating cache",
+			err,
+		)
 		return true
 	}
 
@@ -518,7 +531,6 @@ func (e *Engine) runBin() error {
 
 	e.runnerLog("running...")
 	go func() {
-
 		defer func() {
 			select {
 			case <-e.exitCh:

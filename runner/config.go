@@ -32,6 +32,7 @@ type Config struct {
 	Misc        cfgMisc   `toml:"misc"`
 	Screen      cfgScreen `toml:"screen"`
 	Proxy       cfgProxy  `toml:"proxy"`
+	EnvFile     string    `toml:"env_file"`
 }
 
 type cfgBuild struct {
